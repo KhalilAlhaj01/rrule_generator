@@ -73,6 +73,7 @@ class RRuleTextDelegate {
         'Monthly',
         'Weekly',
         'Daily',
+        'Hourly',
         'Never',
       ];
 }

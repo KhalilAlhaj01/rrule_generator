@@ -8,6 +8,7 @@ import 'package:rrule_generator/src/periods/yearly.dart';
 import 'package:rrule_generator/src/periods/monthly.dart';
 import 'package:rrule_generator/src/periods/weekly.dart';
 import 'package:rrule_generator/src/periods/daily.dart';
+import 'package:rrule_generator/src/periods/hourly.dart';
 import 'package:rrule_generator/src/pickers/helpers.dart';
 import 'package:intl/intl.dart';
 import 'package:rrule_generator/src/rrule_generator_config.dart';
@@ -26,14 +27,15 @@ class RRuleGenerator extends StatelessWidget {
   final List<Period> periodWidgets = [];
   late final ExcludeDates? _excludeDatesPicker;
 
-  RRuleGenerator(
-      {super.key,
-      RRuleGeneratorConfig? config,
-      this.textDelegate = const EnglishRRuleTextDelegate(),
-      this.onChange,
-      this.initialRRule = '',
-      this.withExcludeDates = false,
-      this.initialDate}) {
+  RRuleGenerator({
+    super.key,
+    RRuleGeneratorConfig? config,
+    this.textDelegate = const EnglishRRuleTextDelegate(),
+    this.onChange,
+    this.initialRRule = '',
+    this.withExcludeDates = false,
+    this.initialDate,
+  }) {
     this.config = config ?? RRuleGeneratorConfig();
 
     periodWidgets.addAll([
@@ -64,8 +66,16 @@ class RRuleGenerator extends StatelessWidget {
         valueChanged,
         initialRRule,
         initialDate ?? DateTime.now(),
-      )
+      ),
+      Hourly(
+        this.config,
+        textDelegate,
+        valueChanged,
+        initialRRule,
+        initialDate ?? DateTime.now(),
+      ),
     ]);
+
     _excludeDatesPicker = withExcludeDates
         ? ExcludeDates(
             this.config,
@@ -86,8 +96,10 @@ class RRuleGenerator extends StatelessWidget {
       frequencyNotifier.value = 2;
     } else if (initialRRule.contains('DAILY')) {
       frequencyNotifier.value = 3;
-    } else if (initialRRule == '') {
+    } else if (initialRRule.contains('HOURLY')) {
       frequencyNotifier.value = 4;
+    } else if (initialRRule == '') {
+      frequencyNotifier.value = 5;
     }
 
     if (initialRRule.contains('COUNT')) {
@@ -113,24 +125,24 @@ class RRuleGenerator extends StatelessWidget {
   }
 
   String getRRule() {
-    if (frequencyNotifier.value == 4) {
+    if (frequencyNotifier.value == 5) {
       return '';
     }
 
     final String excludeDates = _excludeDatesPicker?.getRRule() ?? '';
+    final baseRRule = periodWidgets[frequencyNotifier.value].getRRule();
+
     if (countTypeNotifier.value == 0) {
-      return 'RRULE:${periodWidgets[frequencyNotifier.value].getRRule()}$excludeDates';
+      return 'RRULE:$baseRRule$excludeDates';
     } else if (countTypeNotifier.value == 1) {
-      final instances = int.tryParse(instancesController.text) ?? 0;
-      return 'RRULE:${periodWidgets[frequencyNotifier.value].getRRule()};COUNT=${instances > 0 ? instances : 1}$excludeDates';
+      final instances = int.tryParse(instancesController.text) ?? 1;
+      return 'RRULE:$baseRRule;COUNT=${instances > 0 ? instances : 1}$excludeDates';
+    } else {
+      final pickedDate = pickedDateNotifier.value;
+      final day = pickedDate.day.toString().padLeft(2, '0');
+      final month = pickedDate.month.toString().padLeft(2, '0');
+      return 'RRULE:$baseRRule;UNTIL=${pickedDate.year}$month$day$excludeDates';
     }
-    final pickedDate = pickedDateNotifier.value;
-
-    final day = pickedDate.day > 9 ? '${pickedDate.day}' : '0${pickedDate.day}';
-    final month =
-        pickedDate.month > 9 ? '${pickedDate.month}' : '0${pickedDate.month}';
-
-    return 'RRULE:${periodWidgets[frequencyNotifier.value].getRRule()};UNTIL=${pickedDate.year}$month$day$excludeDates';
   }
 
   @override
@@ -154,7 +166,7 @@ class RRuleGenerator extends StatelessWidget {
                         valueChanged();
                       },
                       items: List.generate(
-                        5,
+                        6,
                         (index) => DropdownMenuItem(
                           value: index,
                           child: Text(
@@ -167,7 +179,7 @@ class RRuleGenerator extends StatelessWidget {
                   ),
                 ),
               ),
-              if (period != 4) ...[
+              if (period != 5) ...[
                 const Divider(),
                 periodWidgets[period],
                 const Divider(),
